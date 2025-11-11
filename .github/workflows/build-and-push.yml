@@ -25,10 +25,10 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java (JDK 21)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -54,7 +54,7 @@ jobs:
         run: ./mvnw package
 
       - name: Build and push JVM Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./src/main/docker/Dockerfile.jvm # Specify the JVM Dockerfile
@@ -70,10 +70,10 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java (JDK 21)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -100,7 +100,7 @@ jobs:
         run: ./mvnw package -Pnative -Dquarkus.native.container-build=true
 
       - name: Build and push Native Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./src/main/docker/Dockerfile.native # Specify the Native Dockerfile
