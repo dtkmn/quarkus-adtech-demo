@@ -1,0 +1,117 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.8.3
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.8.3
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: -Xmx1024M -Xms1024M
+#      KAFKA_JMX_PORT: 9999
+#      KAFKA_JMX_HOSTNAME: kafka
+    #    entrypoint: [ "/bin/bash", "-c", "/etc/confluent/docker/run & /scripts/bootstrap-topics.sh" ]
+    entrypoint: [ "/bin/bash", "-c", "/etc/confluent/docker/run" ]
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "9092" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./scripts:/scripts
+      - ./data:/data
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.1.0
+    depends_on:
+      - kafka
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+#      SCHEMAREGISTRY_CONNECT: http://schema-registry:8081
+#      JVM_OPTS: -Xms32M -Xmx64M
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter
+    command: [ "--kafka.server=kafka:29092" ]
+    ports:
+      - "9308:9308"
+    depends_on:
+      - kafka
+
+  # --- NEW OBSERVABILITY STACK ---
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    # Needed for host.docker.internal on Linux, harmless on Mac
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  # --- The Application (JVM Version) ---
+  # We comment this out by default so we can choose which one to run,
+  # or run both to compare side-by-side.
+  adtech-jvm:
+    image: adtech-jvm
+    build:
+      context: .
+      dockerfile: src/main/docker/Dockerfile.jvm
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - JAVA_OPTS=-Xmx512m -Xms128m
+    ports:
+      - "8070:8080"
+    depends_on:
+      - kafka
+
+
+  # --- The Application (Native Version) ---
+  adtech-native:
+    image: adtech-native
+    build:
+      context: .
+      dockerfile: Dockerfile.native
+    environment:
+      # This env var overrides the default in application.properties
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8071:8080"
+    depends_on:
+      - kafka
+
+volumes:
+  grafana_data:
