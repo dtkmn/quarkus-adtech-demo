@@ -1,0 +1,60 @@
+package demo.adtech;
+
+import io.smallrye.mutiny.Uni;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
+import org.eclipse.microprofile.reactive.messaging.OnOverflow;
+import org.jboss.logging.Logger;
+
+@Path( "/bid-request")
+public class BidReceiverResource {
+
+    private static final Logger LOG = Logger.getLogger(BidReceiverResource.class);
+
+    // "Emitter" is the reactive way to push messages to a stream (Kafka).
+    // It's non-blocking and very high performance.
+    @Inject
+    @Channel("bid-stream")
+    @OnOverflow(value = OnOverflow.Strategy.BUFFER, bufferSize = 5000)
+    Emitter<BidRequest> bidEmitter;
+
+    @POST
+    // Returning 'Uni<Response>' means this method is non-blocking (reactive).
+    // It returns a "promise" of a response, freeing up the I/O thread immediately.
+    public Uni<Response> receiveBid(BidRequest request) {
+
+        // --- STAGE 1: FAST VALIDATION (The "Bouncer") ---
+        // Fail instantly if basic required data is missing.
+        if (request.id == null || (request.site == null && request.app == null) || request.device == null) {
+            // 400 Bad Request - Don't waste any more CPU cycles on this.
+            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).build());
+        }
+
+        // --- STAGE 2: SIMPLE BUSINESS FILTERING ---
+        // Example: We don't bid on users who have requested "Limit Ad Tracking" (lmt=1)
+        if (request.device.lmt == 1) {
+            // 204 No Content tells the exchange "We pass, not interested."
+            return Uni.createFrom().item(Response.noContent().build());
+        }
+
+        // Example: Throttle specific IP ranges (simplified for demo)
+        if (request.device.ip != null && request.device.ip.startsWith("10.10.")) {
+            return Uni.createFrom().item(Response.noContent().build());
+        }
+
+        // --- STAGE 3: PUSH TO KAFKA & ACKNOWLEDGE ---
+        // If it passed the filters, it's a "good" request. Push it to the Decision Engine.
+        // .send() is non-blocking.
+        bidEmitter.send(request);
+
+        // Immediately return 200 OK to the exchange.
+        // We don't wait for the Kafka write to be fully confirmed because latency is King here.
+        // In AdTech, it's better to lose 0.01% of messages than to be 10ms slower on ALL messages.
+        return Uni.createFrom().item(Response.ok("{\"status\":\"accepted\"}").build());
+    }
+
+}
