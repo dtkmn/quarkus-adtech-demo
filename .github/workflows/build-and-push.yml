@@ -10,6 +10,14 @@ on:
     branches:
       - '**'  # For testing, run on all branches
 
+permissions:
+  actions: read
+  statuses: read
+  id-token: write
+  contents: read
+  pull-requests: read
+  packages: write
+
 jobs:
   build-jvm:
     name: Build & Push JVM Image
@@ -39,7 +47,7 @@ jobs:
           registry: ghcr.io
           # GITHUB_TOKEN is a temporary secret provided by Actions
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build JVM Jar
         # Just run the standard package build
@@ -64,10 +72,10 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up Java (JDK 17)
+      - name: Set up Java (JDK 21)
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Cache Maven packages
