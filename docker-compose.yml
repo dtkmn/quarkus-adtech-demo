@@ -47,7 +47,7 @@ services:
     ports:
       - "9000:9000"
     environment:
-      KAFKA_BROKERCONNECT: kafka:9092
+      KAFKA_BROKERCONNECT: kafka:29092
 #      SCHEMAREGISTRY_CONNECT: http://schema-registry:8081
 #      JVM_OPTS: -Xms32M -Xmx64M
 
@@ -110,6 +110,18 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     ports:
       - "8071:8080"
+    depends_on:
+      - kafka
+
+  adtech-go:
+    image: adtech-go
+    build:
+      context: ../go-adtech-receiver # Assumes Go app is in a sibling folder
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8072:8080"
     depends_on:
       - kafka
 
