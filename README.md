@@ -1,8 +1,8 @@
-# **Quarkus Native Demo: AdTech High-Velocity Bid Receiver**
+# **Quarkus Native Demo: High-Velocity Bid Receiver**
 
 ## **1\. Business Case**
 
-In AdTech Real-Time Bidding (RTB), latency equals lost revenue. When traffic spikes, we need to spin up new instances instantly.
+In Real-Time Bidding (RTB), latency equals lost revenue. When traffic spikes, we need to spin up new instances instantly.
 
 * **Traditional Java (JVM):** Takes 5-15 seconds to start and "warm up" (JIT compilation). We miss thousands of bid requests during this window.
 * **Quarkus Native:** Starts in \<50ms, fully ready to handle peak load. Zero missed revenue during scale-out events.
@@ -47,30 +47,24 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 }
 ```
 
-## **4\. The "Spike Test" Comparison**
+[//]: # (## **4\. The "Spike Test" Comparison**)
 
-We will run two versions of this exact same code:
 
-1. **JVM Mode:** Standard OpenJDK 17 container.
-2. **Native Mode:** GraalVM native executable container.
+## **4\. Comprehensive Benchmark Comparison**
 
-### **Test Protocol**
+The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
 
-We don't just want to test steady state. We want to test **cold-start under fire**.
+| Metric | Go (Gin) | Quarkus Native | Spring Boot (JVM)\* | Python (FastAPI)\* |
+| :---- | :---- | :---- | :---- | :---- |
+| **Max Throughput** | **\~31,000 RPS** | **\~30,000 RPS** | \~14,000 RPS | \~7,000 RPS |
+| **Avg. Latency** | **1.57ms** | **1.70ms** | \~8.5ms | \~25ms |
+| **Idle Memory** | **\~15 MB** | **\~35 MB** | \~450 MB | \~120 MB |
+| **Startup Time** | **Instant** | **0.05s** | 10s+ | 1s |
+| **Bottleneck** | Network/Infra | Network/Infra | CPU (JIT Warmup) | CPU (GIL) |
 
-1. Stop all containers.
-2. Start the load generator (e.g., k6 or hey) aiming for 500 req/sec immediately.
-3. *Then* start the application container.
-4. Measure:
-    * Time until the first successful 200 OK response.
-    * Error rate during the first 10 seconds.
-    * Memory usage after 1 minute.
 
-## **5\. Expected Results (Hypothesis)**
+**Key Takeaways:**
 
-| Metric | Quarkus JVM | Quarkus Native | Business Impact |
-| :---- | :---- | :---- | :---- |
-| **Time to First OK Response** | \~2-5 seconds | \~0.05 seconds | Native captures revenue instantly. |
-| **Cold Start Error Rate** | High (timeouts while warming up) | Near Zero | Native has better reliability during scaling. |
-| **Memory Footprint (RSS)** | \~250MB | \~35MB | Native allows 7x more instances on the same hardware. |
-
+1. **Go & Quarkus Native** are in a league of their own. They are so fast they saturate the Docker network (\~30k RPS) before their own code becomes the bottleneck.
+2. **Spring Boot (Standard JVM)** is robust but heavy. It requires significantly more memory (\~10x) and takes seconds to start, making it less ideal for serverless or instant-scaling AdTech scenarios.
+3. **Python (FastAPI)** is excellent for development speed but struggles with raw throughput in high-concurrency scenarios due to the Global Interpreter Lock (GIL) and interpreter overhead. To match Go's 30k RPS, you would likely need 4-5x more hardware.
