@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 5s # Scrape often for this high-velocity demo
+
+scrape_configs:
+  - job_name: 'adtech-app'
+    metrics_path: '/q/metrics'
+    static_configs:
+      # We use 'host.docker.internal' to let Prometheus (in container)
+      # talk to apps running on mapped ports on the host (your Mac).
+      # Alternatively, we could use their docker-compose service names
+      # if we uncommented them in the compose file.
+      - targets: ['host.docker.internal:8070', 'host.docker.internal:8071']
+        labels:
+          app: 'adtech-service'
+
+  - job_name: 'go-native'
+    metrics_path: '/metrics' # Go's metrics path
+    static_configs:
+      # 'adtech-go:8080' is the Docker service name and internal port
+      - targets: ['adtech-go:8080']
+        labels:
+          impl: 'go' # Label for Grafana filtering
