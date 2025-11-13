@@ -108,6 +108,8 @@ async fn main() -> std::io::Result<()> {
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &kafka_url)
         .set("message.timeout.ms", "5000")
+        .set("linger.ms", "200")
+        .set("queue.buffering.max.messages", "1000000")
         .create()
         .expect("Producer creation error");
 
@@ -119,6 +121,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(producer.clone()))
             .route("/bid-request", web::post().to(receive_bid))
     })
+    .workers(4)
     .bind("0.0.0.0:8080")?
     .run()
     .await
