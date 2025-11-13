@@ -29,20 +29,20 @@ jobs:
         service:
           # --- Service 1: Quarkus Receiver (Needs Java pre-build) ---
           - name: quarkus-receiver
-            path: ./services/1-quarkus-receiver
+            path: ./services/quarkus-receiver
             dockerfile: src/main/docker/Dockerfile.native
             # NEW: Define a pre-build command for Java
             pre_build: "./mvnw package -Pnative -Dquarkus.native.container-build=true" 
             
           # --- Service 2: Go Receiver (No pre-build needed) ---
           - name: go-receiver
-            path: ./services/2-go-receiver
+            path: ./services/go-receiver
             dockerfile: Dockerfile
             pre_build: "none" # Explicitly no pre-build
             
           # --- Service 3: Quarkus Sinker (Needs Java pre-build) ---
           - name: quarkus-sinker
-            path: ./services/3-quarkus-sinker
+            path: ./services/quarkus-sinker
             dockerfile: src/main/docker/Dockerfile.native
             # NEW: Define a pre-build command for Java
             pre_build: "./mvnw package -Pnative -Dquarkus.native.container-build=true"
