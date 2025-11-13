@@ -6,6 +6,7 @@ name: Build and Push All Services
 on:
   push:
     branches:
+      - '**'
     paths:
       - 'services/**'
       - '.github/workflows/build-all.yml'
