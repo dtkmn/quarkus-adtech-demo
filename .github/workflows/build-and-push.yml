@@ -7,12 +7,12 @@ on:
   push:
     paths:
       - 'services/**'
-      - '.github/workflows/build-all.yml'
+      - '.github/workflows/build-and-push.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'services/**'
-      - '.github/workflows/build-all.yml'
+      - '.github/workflows/build-and-push.yml'
 
 jobs:
   build-and-push:
