@@ -45,6 +45,12 @@ jobs:
             dockerfile: src/main/docker/Dockerfile.native
             # NEW: Define a pre-build command for Java
             pre_build: "./mvnw package -Pnative -Dquarkus.native.container-build=true"
+          
+          # --- Service 4: Rust Receiver (No pre-build needed) ---
+          - name: rust-receiver
+            path: ./services/rust-receiver
+            dockerfile: Dockerfile
+            pre_build: "none" # Explicitly no pre-build
 
     steps:
       - name: Check out repository
