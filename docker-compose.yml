@@ -124,6 +124,18 @@ services:
       - "8072:8080"
     depends_on:
       - kafka
+  
+  rust-receiver:
+    image: rust-receiver
+    build:
+      context: ./services/rust-receiver
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8073:8080"
+    depends_on:
+      - kafka
 
 volumes:
   grafana_data:
