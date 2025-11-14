@@ -51,14 +51,6 @@ services:
 #      SCHEMAREGISTRY_CONNECT: http://schema-registry:8081
 #      JVM_OPTS: -Xms32M -Xmx64M
 
-  kafka-exporter:
-    image: danielqsj/kafka-exporter
-    command: [ "--kafka.server=kafka:29092" ]
-    ports:
-      - "9308:9308"
-    depends_on:
-      - kafka
-
   # --- NEW OBSERVABILITY STACK ---
   prometheus:
     image: prom/prometheus:latest
@@ -81,14 +73,31 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+  
+  postgres:
+    image: "pgvector/pgvector:pg17" # Use a pgvector-enabled image
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresData:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # --- The Application (JVM Version) ---
   # We comment this out by default so we can choose which one to run,
   # or run both to compare side-by-side.
-  adtech-jvm:
-    image: adtech-jvm
+  quarkus-receiver:
+    image: quarkus-receiver
     build:
-      context: .
+      context: ./services/quarkus-receiver
       dockerfile: src/main/docker/Dockerfile.jvm
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -100,23 +109,39 @@ services:
 
 
   # --- The Application (Native Version) ---
-  adtech-native:
-    image: adtech-native
+  # adtech-native:
+  #   image: adtech-native
+  #   build:
+  #     context: ./services/quarkus-receiver
+  #     dockerfile: src/main/docker/Dockerfile.native
+  #   environment:
+  #     # This env var overrides the default in application.properties
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #   ports:
+  #     - "8071:8080"
+  #   depends_on:
+  #     - kafka
+
+  quarkus-sinker:
+    image: quarkus-sinker
     build:
-      context: .
-      dockerfile: Dockerfile.native
+      context: ./services/quarkus-sinker
+      dockerfile: src/main/docker/Dockerfile.jvm
     environment:
-      # This env var overrides the default in application.properties
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - JAVA_OPTS=-Xmx512m -Xms128m
     ports:
       - "8071:8080"
     depends_on:
       - kafka
 
-  adtech-go:
-    image: adtech-go
+  go-receiver:
+    image: go-receiver
     build:
-      context: ../go-adtech-receiver # Assumes Go app is in a sibling folder
+      context: ./services/go-receiver # Assumes Go app is in a sibling folder
       dockerfile: Dockerfile
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -139,3 +164,4 @@ services:
 
 volumes:
   grafana_data:
+  postgresData:
