@@ -47,20 +47,54 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 }
 ```
 
+## 4. High-Level Architecture
+
+The system is designed for high-throughput and real-time processing of bid requests. It consists of multiple, interchangeable receiver services that perform initial validation and then push the data to a Kafka topic for more complex, asynchronous processing by a "sinker" or "decision engine."
+
+```
++----------------+      +----------------+      +----------------+
+|                |      |                |      |                |
+|  Quarkus       |      |  Go Receiver   |      |  Rust Receiver |
+|  Receiver      |      |                |      |                |
+| (Port 8071)    |      |  (Port 8072)   |      |  (Port 8073)   |
+|                |      |                |      |                |
++-------+--------+      +--------+-------+      +--------+-------+
+        |                        |                        |
+        |  POST /bid-request     |  POST /bid-request     |  POST /bid-request
+        |                        |                        |
+        v                        v                        v
++----------------------------------------------------------------+
+|                                                                |
+|                         Kafka Topic                            |
+|                       ("bid_requests")                         |
+|                                                                |
++----------------------------------------------------------------+
+                         |
+                         |  (Consumed by Sinker)
+                         |
+                         v
++------------------------+-----------------------+
+|                                                |
+|               Quarkus Sinker                   |
+|          (Complex Decision Engine)             |
+|                                                |
++------------------------------------------------+
+```
+
 [//]: # (## **4\. The "Spike Test" Comparison**)
 
 
-## **4\. Comprehensive Benchmark Comparison**
+## **5\. Comprehensive Benchmark Comparison**
 
 The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
 
-| Metric | Go (Gin) | Quarkus Native | Spring Boot (JVM)\* | Python (FastAPI)\* |
-| :---- | :---- | :---- | :---- | :---- |
-| **Max Throughput** | **\~31,000 RPS** | **\~30,000 RPS** | \~14,000 RPS | \~7,000 RPS |
-| **Avg. Latency** | **1.57ms** | **1.70ms** | \~8.5ms | \~25ms |
-| **Idle Memory** | **\~15 MB** | **\~35 MB** | \~450 MB | \~120 MB |
-| **Startup Time** | **Instant** | **0.05s** | 10s+ | 1s |
-| **Bottleneck** | Network/Infra | Network/Infra | CPU (JIT Warmup) | CPU (GIL) |
+| Metric | Go (Gin) | Quarkus Native | Rust (Actix) | Spring Boot (JVM)* | Python (FastAPI)* |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| **Max Throughput** | **~31,000 RPS** | **~30,000 RPS** | **TBD** | ~14,000 RPS | ~7,000 RPS |
+| **Avg. Latency** | **1.57ms** | **1.70ms** | **TBD** | ~8.5ms | ~25ms |
+| **Idle Memory** | **~15 MB** | **~35 MB** | **TBD** | ~450 MB | ~120 MB |
+| **Startup Time** | **Instant** | **0.05s** | **TBD** | 10s+ | 1s |
+| **Bottleneck** | Network/Infra | Network/Infra | **TBD** | CPU (JIT Warmup) | CPU (GIL) |
 
 
 **Key Takeaways:**
