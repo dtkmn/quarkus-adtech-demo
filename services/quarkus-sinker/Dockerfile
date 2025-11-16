@@ -34,6 +34,9 @@ RUN ./mvnw package -DskipTests -B
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:21-jre-alpine
 
+# Install wget for health checks and libstdc++ for RocksDB (required by Kafka Streams)
+RUN apk add --no-cache wget libstdc++
+
 ENV LANGUAGE='en_US:en'
 
 WORKDIR /deployments

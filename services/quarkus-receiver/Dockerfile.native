@@ -33,6 +33,9 @@ RUN ./mvnw package -Dnative -DskipTests -B
 # Stage 2: Create the runtime image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6
 
+# Install wget for health checks
+RUN microdnf install -y wget && microdnf clean all
+
 WORKDIR /work/
 RUN chown 1001 /work \
     && chmod "g+rwX" /work \

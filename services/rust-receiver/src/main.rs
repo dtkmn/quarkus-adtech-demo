@@ -81,6 +81,11 @@ async fn receive_bid(
     }
 }
 
+// --- Health check handler ---
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({"status": "healthy"}))
+}
+
 // --- Main Application Entry Point ---
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -104,6 +109,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(producer.clone()))
             .route("/bid-request", web::post().to(receive_bid))
+            .route("/health", web::get().to(health_check))
     })
     .workers(4)
     .bind("0.0.0.0:8080")?

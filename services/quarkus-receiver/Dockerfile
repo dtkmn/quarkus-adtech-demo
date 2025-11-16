@@ -34,6 +34,9 @@ RUN ./mvnw package -DskipTests -B
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:21-jre-alpine
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 ENV LANGUAGE='en_US:en'
 
 WORKDIR /deployments
