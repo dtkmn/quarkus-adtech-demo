@@ -98,7 +98,7 @@ services:
     image: quarkus-receiver
     build:
       context: ./services/quarkus-receiver
-      dockerfile: src/main/docker/Dockerfile.jvm
+      dockerfile: Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - JAVA_OPTS=-Xmx512m -Xms128m
@@ -109,24 +109,25 @@ services:
 
 
   # --- The Application (Native Version) ---
-  # adtech-native:
-  #   image: adtech-native
-  #   build:
-  #     context: ./services/quarkus-receiver
-  #     dockerfile: src/main/docker/Dockerfile.native
-  #   environment:
-  #     # This env var overrides the default in application.properties
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-  #   ports:
-  #     - "8071:8080"
-  #   depends_on:
-  #     - kafka
+  quarkus-receiver-native:
+    image: quarkus-receiver-native
+    build:
+      context: ./services/quarkus-receiver
+      dockerfile: Dockerfile.native
+    environment:
+      # This env var overrides the default in application.properties
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - JAVA_OPTS=-Xmx512m -Xms128m
+    ports:
+      - "8071:8080"
+    depends_on:
+      - kafka
 
   quarkus-sinker:
     image: quarkus-sinker
     build:
       context: ./services/quarkus-sinker
-      dockerfile: src/main/docker/Dockerfile.jvm
+      dockerfile: Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - DB_HOST=postgres
@@ -134,7 +135,7 @@ services:
       - DB_NAME=postgres
       - JAVA_OPTS=-Xmx512m -Xms128m
     ports:
-      - "8071:8080"
+      - "8074:8080"
     depends_on:
       - kafka
 
