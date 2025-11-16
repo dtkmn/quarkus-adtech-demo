@@ -1,0 +1,36 @@
+# Maven build output
+target/
+
+# Maven wrapper (already copied in Dockerfile)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Test files
+src/test/
+
+# Quarkus dev mode
+.quarkus/
+
+# Logs
+*.log

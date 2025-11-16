@@ -1,0 +1,23 @@
+# Rust build artifacts (will be built in Docker)
+target/
+Cargo.lock
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Logs
+*.log
