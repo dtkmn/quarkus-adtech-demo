@@ -17,6 +17,6 @@ scrape_configs:
     metrics_path: '/metrics' # Go's metrics path
     static_configs:
       # 'adtech-go:8080' is the Docker service name and internal port
-      - targets: ['adtech-go:8080']
+      - targets: ['host.docker.internal:8072']
         labels:
           impl: 'go' # Label for Grafana filtering

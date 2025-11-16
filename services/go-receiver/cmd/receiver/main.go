@@ -33,6 +33,11 @@ func main() {
 	// We now pass the handler function from the 'handlers' package
 	router.POST("/bid-request", handlers.ReceiveBid)
 
+	// Health check endpoint for Docker health checks
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "healthy"})
+	})
+
 	// Run the server
 	log.Println("Starting Go AdTech Receiver on port 8080...")
 	router.Run(":8080")

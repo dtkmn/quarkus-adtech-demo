@@ -23,6 +23,9 @@ RUN CGO_ENABLED=0 go build -o /app/receiver ./cmd/receiver/main.go
 # Use a minimal Alpine image for the final, tiny container
 FROM alpine:latest
 
+# Install wget for health checks
+RUN apk add --no-cache wget
+
 # Only copy the compiled binary from the 'builder' stage
 COPY --from=builder /app/receiver /receiver
 
