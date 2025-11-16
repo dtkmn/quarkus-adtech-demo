@@ -1,5 +1,5 @@
 # This workflow builds and pushes Docker images for all services in the monorepo
-# It includes a conditional pre-build step for Java/Maven projects.
+# All services now use multi-stage Dockerfiles - no pre-build steps required!
 
 name: Build and Push All Services
 
@@ -26,44 +26,34 @@ jobs:
     strategy:
       matrix:
         service:
-          # --- Service 1: Quarkus Receiver (Needs Java pre-build) ---
+          # --- Service 1: Quarkus Receiver (JVM) ---
           - name: quarkus-receiver
             path: ./services/quarkus-receiver
-            dockerfile: src/main/docker/Dockerfile.native
-            # NEW: Define a pre-build command for Java
-            pre_build: "./mvnw package -Pnative -Dquarkus.native.container-build=true" 
+            dockerfile: Dockerfile
             
-          # --- Service 2: Go Receiver (No pre-build needed) ---
+          # --- Service 2: Quarkus Receiver (Native) ---
+          - name: quarkus-receiver-native
+            path: ./services/quarkus-receiver
+            dockerfile: Dockerfile.native
+            
+          # --- Service 3: Go Receiver ---
           - name: go-receiver
             path: ./services/go-receiver
             dockerfile: Dockerfile
-            pre_build: "none" # Explicitly no pre-build
             
-          # --- Service 3: Quarkus Sinker (Needs Java pre-build) ---
+          # --- Service 4: Quarkus Sinker ---
           - name: quarkus-sinker
             path: ./services/quarkus-sinker
-            dockerfile: src/main/docker/Dockerfile.native
-            # NEW: Define a pre-build command for Java
-            pre_build: "./mvnw package -Pnative -Dquarkus.native.container-build=true"
+            dockerfile: Dockerfile
           
-          # --- Service 4: Rust Receiver (No pre-build needed) ---
+          # --- Service 5: Rust Receiver ---
           - name: rust-receiver
             path: ./services/rust-receiver
             dockerfile: Dockerfile
-            pre_build: "none" # Explicitly no pre-build
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      # --- NEW: Setup Java (JDK 17) ---
-      # This is required for the Quarkus services' pre-build step
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -74,16 +64,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      # --- NEW: Run the Maven Pre-Build (if defined) ---
-      - name: Run Maven Pre-Build Step (if needed)
-        # This 'if' condition checks the matrix
-        if: matrix.service.pre_build != 'none'
-        run: |
-          echo "Running pre-build step: ${{ matrix.service.pre_build }}"
-          cd ${{ matrix.service.path }}
-          chmod +x ./mvnw
-          ${{ matrix.service.pre_build }}
 
       - name: Generate Docker tags and labels
         id: meta
