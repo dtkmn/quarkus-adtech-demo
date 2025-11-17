@@ -37,11 +37,11 @@ kafka:
   port: 9092
   resources:
     requests:
-      memory: "1Gi"
-      cpu: "500m"
-    limits:
       memory: "2Gi"
       cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
   persistence:
     enabled: true
     size: 10Gi
@@ -110,15 +110,15 @@ grafana:
 quarkusReceiver:
   enabled: true
   image: quarkus-receiver:latest
-  replicas: 2
+  replicas: 3
   port: 8070
   resources:
     requests:
       memory: "512Mi"
-      cpu: "250m"
+      cpu: "500m"
     limits:
-      memory: "1Gi"
-      cpu: "1000m"
+      memory: "2Gi"
+      cpu: "2000m"
   healthCheck:
     path: /q/health/ready
     initialDelaySeconds: 30
@@ -130,15 +130,15 @@ quarkusReceiver:
 quarkusReceiverNative:
   enabled: true
   image: quarkus-receiver-native:latest
-  replicas: 2
+  replicas: 3
   port: 8071
   resources:
     requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
       memory: "256Mi"
-      cpu: "500m"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "1000m"
   healthCheck:
     path: /q/health/ready
     initialDelaySeconds: 10
@@ -150,15 +150,15 @@ quarkusReceiverNative:
 goReceiver:
   enabled: true
   image: go-receiver:latest
-  replicas: 2
+  replicas: 3
   port: 8072
   resources:
     requests:
-      memory: "64Mi"
-      cpu: "100m"
-    limits:
       memory: "128Mi"
-      cpu: "500m"
+      cpu: "250m"
+    limits:
+      memory: "256Mi"
+      cpu: "1000m"
   healthCheck:
     path: /health
     initialDelaySeconds: 10
@@ -170,15 +170,15 @@ goReceiver:
 rustReceiver:
   enabled: true
   image: rust-receiver:latest
-  replicas: 2
+  replicas: 3
   port: 8073
   resources:
     requests:
-      memory: "64Mi"
-      cpu: "100m"
-    limits:
       memory: "128Mi"
-      cpu: "500m"
+      cpu: "250m"
+    limits:
+      memory: "256Mi"
+      cpu: "1000m"
   healthCheck:
     path: /health
     initialDelaySeconds: 10
