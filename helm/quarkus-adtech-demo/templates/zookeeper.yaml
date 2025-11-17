@@ -1,0 +1,78 @@
+{{- if .Values.zookeeper.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: zookeeper
+    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: client
+      port: {{ .Values.zookeeper.port }}
+      targetPort: 2181
+      protocol: TCP
+  selector:
+    app: zookeeper
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: zookeeper
+    {{- include "quarkus-adtech-demo.labels" . | nindent 4 }}
+spec:
+  serviceName: zookeeper
+  replicas: {{ .Values.zookeeper.replicas }}
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: {{ .Values.zookeeper.image }}
+          imagePullPolicy: {{ .Values.infrastructureImagePullPolicy }}
+          ports:
+            - containerPort: 2181
+              name: client
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+            - name: ZOOKEEPER_DATA_DIR
+              value: /var/lib/zookeeper/data
+            - name: ZOOKEEPER_LOG_DIR
+              value: /var/lib/zookeeper/log
+          volumeMounts:
+            - name: zookeeper-data
+              mountPath: /var/lib/zookeeper
+          resources:
+            {{- toYaml .Values.zookeeper.resources | nindent 12 }}
+  {{- if .Values.zookeeper.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: zookeeper-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.zookeeper.persistence.storageClass }}
+        storageClassName: {{ .Values.zookeeper.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.zookeeper.persistence.size }}
+  {{- else }}
+      volumes:
+        - name: zookeeper-data
+          emptyDir: {}
+  {{- end }}
+{{- end }}
