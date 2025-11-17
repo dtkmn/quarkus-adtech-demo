@@ -201,10 +201,10 @@ quarkusSinker:
       cpu: "1000m"
   healthCheck:
     path: /q/health/ready
-    initialDelaySeconds: 30
+    initialDelaySeconds: 60
     periodSeconds: 10
     timeoutSeconds: 5
-    failureThreshold: 5
+    failureThreshold: 30
 
 # Ingress configuration (optional)
 ingress:
