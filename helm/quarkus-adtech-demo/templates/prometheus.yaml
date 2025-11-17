@@ -16,28 +16,78 @@ data:
     scrape_configs:
       - job_name: 'quarkus-receiver'
         metrics_path: '/q/metrics'
-        static_configs:
-          - targets: ['quarkus-receiver:8070']
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: quarkus-receiver
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
 
       - job_name: 'quarkus-receiver-native'
         metrics_path: '/q/metrics'
-        static_configs:
-          - targets: ['quarkus-receiver-native:8071']
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: quarkus-receiver-native
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
 
       - job_name: 'go-receiver'
         metrics_path: '/metrics'
-        static_configs:
-          - targets: ['go-receiver:8072']
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: go-receiver
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
 
       - job_name: 'rust-receiver'
         metrics_path: '/metrics'
-        static_configs:
-          - targets: ['rust-receiver:8073']
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: rust-receiver
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
 
       - job_name: 'quarkus-sinker'
         metrics_path: '/q/metrics'
-        static_configs:
-          - targets: ['quarkus-sinker:8074']
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - {{ .Values.namespace }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: quarkus-sinker
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: $1:8080
 
       - job_name: 'kafka'
         static_configs:
@@ -92,6 +142,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus
       containers:
         - name: prometheus
           image: {{ .Values.prometheus.image }}
