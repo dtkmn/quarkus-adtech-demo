@@ -106,6 +106,20 @@ grafana:
     size: 5Gi
     storageClass: "standard"
 
+# Jaeger configuration
+jaeger:
+  enabled: true
+  image: jaegertracing/all-in-one:1.51
+  replicas: 1
+  port: 16686
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 # Quarkus Receiver (JVM) configuration
 quarkusReceiver:
   enabled: true

@@ -56,6 +56,10 @@ spec:
               value: "kafka:9092"
             - name: QUARKUS_PROFILE
               value: "prod"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "quarkus-receiver"
           resources:
             {{- toYaml .Values.quarkusReceiver.resources | nindent 12 }}
           livenessProbe:

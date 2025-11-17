@@ -62,6 +62,10 @@ spec:
               value: {{ .Values.postgresql.password }}
             - name: QUARKUS_PROFILE
               value: "prod"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger:4317"
+            - name: OTEL_SERVICE_NAME
+              value: "quarkus-sinker"
           resources:
             {{- toYaml .Values.quarkusSinker.resources | nindent 12 }}
           livenessProbe:
