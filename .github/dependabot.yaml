@@ -1,6 +1,56 @@
 version: 2
 updates:
+  # Quarkus Receiver (JVM)
   - package-ecosystem: "maven"
+    directory: "/services/quarkus-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Quarkus Sinker
+  - package-ecosystem: "maven"
+    directory: "/services/quarkus-sinker"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Go Receiver
+  - package-ecosystem: "gomod"
+    directory: "/services/go-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Rust Receiver
+  - package-ecosystem: "cargo"
+    directory: "/services/rust-receiver"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/services/quarkus-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/quarkus-sinker"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/go-receiver"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/services/rust-receiver"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
