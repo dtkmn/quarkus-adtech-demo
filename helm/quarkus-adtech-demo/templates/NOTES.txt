@@ -1,0 +1,67 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }} -n {{ .Values.namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Values.namespace }}
+
+The following services have been deployed:
+
+Infrastructure:
+{{- if .Values.zookeeper.enabled }}
+  ✓ Zookeeper - Port {{ .Values.zookeeper.port }}
+{{- end }}
+{{- if .Values.kafka.enabled }}
+  ✓ Kafka - Port {{ .Values.kafka.port }}
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  ✓ PostgreSQL - Port {{ .Values.postgresql.port }}
+{{- end }}
+{{- if .Values.prometheus.enabled }}
+  ✓ Prometheus - Port {{ .Values.prometheus.port }}
+    Access via: http://localhost:{{ .Values.prometheus.port }}
+{{- end }}
+{{- if .Values.grafana.enabled }}
+  ✓ Grafana - Port {{ .Values.grafana.port }}
+    Access via: http://localhost:{{ .Values.grafana.port }}
+    Username: {{ .Values.grafana.username }}
+    Password: {{ .Values.grafana.password }}
+{{- end }}
+
+Application Services:
+{{- if .Values.quarkusReceiver.enabled }}
+  ✓ Quarkus Receiver (JVM) - Port {{ .Values.quarkusReceiver.port }}
+    Access via: http://localhost:{{ .Values.quarkusReceiver.port }}
+{{- end }}
+{{- if .Values.quarkusReceiverNative.enabled }}
+  ✓ Quarkus Receiver (Native) - Port {{ .Values.quarkusReceiverNative.port }}
+    Access via: http://localhost:{{ .Values.quarkusReceiverNative.port }}
+{{- end }}
+{{- if .Values.goReceiver.enabled }}
+  ✓ Go Receiver - Port {{ .Values.goReceiver.port }}
+    Access via: http://localhost:{{ .Values.goReceiver.port }}
+{{- end }}
+{{- if .Values.rustReceiver.enabled }}
+  ✓ Rust Receiver - Port {{ .Values.rustReceiver.port }}
+    Access via: http://localhost:{{ .Values.rustReceiver.port }}
+{{- end }}
+{{- if .Values.quarkusSinker.enabled }}
+  ✓ Quarkus Sinker - Port {{ .Values.quarkusSinker.port }}
+    Access via: http://localhost:{{ .Values.quarkusSinker.port }}
+{{- end }}
+
+Check the status of your pods:
+
+  $ kubectl get pods -n {{ .Values.namespace }}
+
+Check the logs of a service:
+
+  $ kubectl logs -f deployment/<service-name> -n {{ .Values.namespace }}
+
+For load testing, run:
+
+  $ k6 run k6/load-test.js
+
+Happy streaming! 🚀
