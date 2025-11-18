@@ -52,7 +52,83 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 
 ## **4\. Architecture Overview**
 
-This demo includes 5 different receiver implementations to compare performance:
+### System Design
+
+```mermaid
+graph TB
+    subgraph "Load Balancer / Ingress"
+        LB[Load Balancer<br/>Port 8070-8073]
+    end
+    
+    subgraph "Receiver Layer - High Throughput HTTP Services"
+        QR[Quarkus Receiver JVM<br/>:8070<br/>~16.7K RPS]
+        QRN[Quarkus Receiver Native<br/>:8071<br/>~16.8K RPS]
+        GR[Go Receiver<br/>:8072<br/>~17.6K RPS]
+        RR[Rust Receiver<br/>:8073<br/>~21.8K RPS]
+    end
+    
+    subgraph "Message Queue"
+        K[Apache Kafka<br/>Topic: bids<br/>3 partitions]
+    end
+    
+    subgraph "Stream Processing"
+        QS[Quarkus Sinker<br/>:8074<br/>Kafka Streams]
+    end
+    
+    subgraph "Data Storage"
+        PG[(PostgreSQL<br/>Database)]
+    end
+    
+    subgraph "Observability Stack"
+        P[Prometheus<br/>:9090<br/>Metrics]
+        G[Grafana<br/>:3000<br/>Dashboards]
+        J[Jaeger<br/>:16686<br/>Distributed Tracing]
+    end
+    
+    subgraph "Management Tools"
+        KD[Kafdrop<br/>:9000<br/>Kafka UI]
+    end
+    
+    LB --> QR
+    LB --> QRN
+    LB --> GR
+    LB --> RR
+    
+    QR -->|Reactive Messaging| K
+    QRN -->|Reactive Messaging| K
+    GR -->|Kafka Producer| K
+    RR -->|Kafka Producer| K
+    
+    K --> QS
+    QS -->|Persist| PG
+    
+    QR -.->|Metrics| P
+    QRN -.->|Metrics| P
+    GR -.->|Metrics| P
+    RR -.->|Metrics| P
+    QS -.->|Metrics| P
+    
+    QR -.->|Traces| J
+    QRN -.->|Traces| J
+    QS -.->|Traces| J
+    
+    P --> G
+    K -.->|Monitor| KD
+    
+    style QR fill:#4695eb
+    style QRN fill:#4695eb
+    style GR fill:#00ADD8
+    style RR fill:#f74c00
+    style K fill:#231F20
+    style QS fill:#4695eb
+    style PG fill:#336791
+    style P fill:#e6522c
+    style G fill:#f46800
+    style J fill:#60d0e4
+    style KD fill:#0c0c0c
+```
+
+### Service Comparison
 
 | Service | Port | Technology | Image Size | Use Case |
 |---------|------|------------|------------|----------|
@@ -100,7 +176,126 @@ curl -X POST http://localhost:8072/bid-request \
 - **Grafana**: http://localhost:3000
 - **Prometheus**: http://localhost:9090
 
-## **6\. Comprehensive Benchmark Comparison**
+## **6\. Kubernetes Deployment**
+
+This project includes a production-ready Helm chart for deploying to any Kubernetes cluster (local or cloud).
+
+### Prerequisites
+- Kubernetes cluster (kind, minikube, EKS, AKS, GKE)
+- Helm 3.x
+- kubectl configured
+
+### Deploy with Helm
+
+```bash
+# Create namespace
+kubectl create namespace adtech-demo
+
+# Install the Helm chart
+helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+  --namespace adtech-demo
+
+# Check deployment status
+kubectl get pods -n adtech-demo
+
+# Access services (using port-forward for local clusters)
+kubectl port-forward -n adtech-demo svc/quarkus-receiver 8070:8070
+kubectl port-forward -n adtech-demo svc/prometheus 9090:9090
+kubectl port-forward -n adtech-demo svc/grafana 3000:3000
+kubectl port-forward -n adtech-demo svc/jaeger 16686:16686
+```
+
+### Deploy with ArgoCD (GitOps)
+
+```bash
+# Install ArgoCD (if not already installed)
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Create ArgoCD application
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quarkus-adtech-demo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/dtkmn/quarkus-adtech-demo
+    targetRevision: dev
+    path: helm/quarkus-adtech-demo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: adtech-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+
+# Access ArgoCD UI
+kubectl port-forward -n argocd svc/argocd-server 8443:443
+```
+
+### Local Kubernetes with kind
+
+```bash
+# Create kind cluster with port mappings
+kind create cluster --name adtech-demo --config kind-config.yaml
+
+# Load local images into kind
+kind load docker-image quarkus-receiver:latest --name adtech-demo
+kind load docker-image quarkus-receiver-native:latest --name adtech-demo
+kind load docker-image go-receiver:latest --name adtech-demo
+kind load docker-image rust-receiver:latest --name adtech-demo
+kind load docker-image quarkus-sinker:latest --name adtech-demo
+
+# Deploy with Helm
+helm install quarkus-adtech-demo ./helm/quarkus-adtech-demo \
+  --namespace adtech-demo --create-namespace
+```
+
+### Kubernetes Observability
+
+The Helm chart includes:
+- **Prometheus**: Pod-level metrics collection with Kubernetes service discovery
+- **Jaeger**: Distributed tracing for request flows (HTTP → Kafka → Database)
+- **Health Checks**: Liveness and readiness probes for all services
+- **Resource Limits**: CPU and memory limits configured for production
+
+Access Jaeger UI:
+```bash
+kubectl port-forward -n adtech-demo svc/jaeger 16686:16686
+# Open http://localhost:16686
+```
+
+### Cloud Deployment Notes
+
+For deploying to cloud Kubernetes (EKS, AKS, GKE):
+
+1. **Push images to a container registry**:
+   ```bash
+   docker tag quarkus-receiver:latest your-registry.io/quarkus-receiver:latest
+   docker push your-registry.io/quarkus-receiver:latest
+   ```
+
+2. **Update `values.yaml`**:
+   ```yaml
+   serviceType: LoadBalancer  # or use Ingress
+   applicationImagePullPolicy: IfNotPresent
+   quarkusReceiver:
+     image: your-registry.io/quarkus-receiver:latest
+   ```
+
+3. **Use managed services** (optional):
+   - AWS MSK (Managed Kafka) instead of in-cluster Kafka
+   - AWS RDS (PostgreSQL) instead of in-cluster database
+   - AWS Managed Prometheus & Grafana
+
+## **7\. Comprehensive Benchmark Comparison**
 
 The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
 
@@ -121,7 +316,7 @@ Metric | Go (Gin) | Quarkus Native | Rust (Actix) | Spring Boot (JVM)* | Python 
 2. **Spring Boot (Standard JVM)** is robust but heavy. It requires significantly more memory (\~10x) and takes seconds to start, making it less ideal for serverless or instant-scaling AdTech scenarios.
 3. **Python (FastAPI)** is excellent for development speed but struggles with raw throughput in high-concurrency scenarios due to the Global Interpreter Lock (GIL) and interpreter overhead. To match Go's 30k RPS, you would likely need 4-5x more hardware.
 
-## **7\. Load Testing**
+## **8\. Load Testing**
 
 Run k6 load tests against any receiver:
 
@@ -134,7 +329,7 @@ BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go receiver
 BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust receiver
 ```
 
-## **8\. Docker Image Optimization**
+## **9\. Docker Image Optimization**
 
 All services use optimized, multi-stage Dockerfiles:
 
@@ -149,7 +344,7 @@ All services use optimized, multi-stage Dockerfiles:
 - **Quarkus JVM**: 387 MB (Alpine + Temurin JRE 21)
 - **Quarkus Sinker**: 582 MB (Alpine + Temurin JRE 21 + larger dependencies)
 
-## **9\. Development**
+## **10\. Development**
 
 ### Local Development (without Docker)
 
@@ -177,7 +372,7 @@ docker-compose build quarkus-receiver
 docker-compose build go-receiver
 ```
 
-## **10\. CI/CD**
+## **11\. CI/CD**
 
 GitHub Actions workflow automatically builds and pushes all service images to GitHub Container Registry on every push to `main`. No pre-build steps needed - the multi-stage Dockerfiles handle everything!
 
