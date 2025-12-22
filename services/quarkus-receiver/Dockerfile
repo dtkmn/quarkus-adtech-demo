@@ -8,7 +8,7 @@
 ####
 
 # Stage 1: Build the application with Maven
-FROM registry.access.redhat.com/ubi9/openjdk-21:1.23 AS builder
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.24 AS builder
 
 USER root
 
