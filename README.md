@@ -68,7 +68,7 @@ graph TB
     end
     
     subgraph "Message Queue"
-        K[Apache Kafka<br/>Topic: bids<br/>3 partitions]
+        K[Apache Kafka KRaft<br/>Topic: bids<br/>3 partitions<br/>No ZooKeeper!]
     end
     
     subgraph "Stream Processing"

@@ -1,0 +1,84 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: adtech-demo
+  namespace: argocd
+  # Finalizer that ensures cascading deletes
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # The project the application belongs to
+  project: default
+
+  # Source of the application manifests
+  source:
+    # Path to Helm chart in the Git repository
+    # For local development, you can use the local path after pushing to Git
+    # repoURL: https://github.com/dtkmn/quarkus-adtech-demo.git
+    # targetRevision: dev
+    # path: helm/quarkus-adtech-demo
+    
+    # For now, using local Helm chart (requires manual helm template)
+    # You should push this to Git and use the Git URL above for true GitOps
+    repoURL: https://github.com/dtkmn/quarkus-adtech-demo.git
+    targetRevision: HEAD  # or specify branch like 'dev'
+    path: helm/quarkus-adtech-demo
+    
+    # Helm specific configuration
+    helm:
+      # Helm values file overrides
+      valueFiles:
+        - values.yaml
+      
+      # Override specific values
+      parameters:
+        - name: quarkusReceiver.replicas
+          value: "2"
+        - name: goReceiver.replicas
+          value: "2"
+        - name: rustReceiver.replicas
+          value: "2"
+
+  # Destination cluster and namespace
+  destination:
+    # Use in-cluster Kubernetes API server
+    server: https://kubernetes.default.svc
+    namespace: adtech-demo
+
+  # Sync policy
+  syncPolicy:
+    # Automated sync
+    automated:
+      # Automatically sync when Git changes are detected
+      prune: true          # Delete resources that are no longer defined in Git
+      selfHeal: true       # Automatically sync when cluster state deviates from Git
+      allowEmpty: false    # Don't delete all resources if source is empty
+    
+    # Sync options
+    syncOptions:
+      - CreateNamespace=true  # Automatically create namespace if it doesn't exist
+      - PruneLast=true        # Prune resources as a last step
+      - RespectIgnoreDifferences=true
+    
+    # Retry configuration
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore differences in certain fields
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore replica count differences (useful for HPA)
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/replicas
+
+  # Health assessment
+  # ArgoCD will check health of resources
+  # Custom health checks can be added here if needed
