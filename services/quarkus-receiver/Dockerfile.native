@@ -10,7 +10,7 @@
 ####
 
 # Stage 1: Build the native executable with GraalVM
-FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-21 AS builder
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:jdk-25 AS builder
 
 USER root
 
