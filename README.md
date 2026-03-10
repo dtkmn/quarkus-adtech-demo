@@ -61,10 +61,10 @@ graph TB
     end
     
     subgraph "Receiver Layer - High Throughput HTTP Services"
-        QR[Quarkus Receiver JVM<br/>:8070<br/>~16.7K RPS]
-        QRN[Quarkus Receiver Native<br/>:8071<br/>~16.8K RPS]
-        GR[Go Receiver<br/>:8072<br/>~17.6K RPS]
-        RR[Rust Receiver<br/>:8073<br/>~21.8K RPS]
+        QR[Quarkus Receiver JVM<br/>:8070]
+        QRN[Quarkus Receiver Native<br/>:8071]
+        GR[Go Receiver<br/>:8072]
+        RR[Rust Receiver<br/>:8073]
     end
     
     subgraph "Message Queue"
@@ -130,13 +130,13 @@ graph TB
 
 ### Service Comparison
 
-| Service | Port | Technology | Image Size | Use Case |
-|---------|------|------------|------------|----------|
-| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | 387MB | Production-ready JVM with fast startup |
-| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | 271MB | Instant startup, minimal memory |
-| **go-receiver** | 8072 | Go + Gin | 51.6MB | Minimal footprint, high throughput |
-| **rust-receiver** | 8073 | Rust + Actix | 132MB | Maximum performance, memory safety |
-| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | 582MB | Consumer that sinks to PostgreSQL |
+| Service | Port | Technology | Role |
+|---------|------|------------|------|
+| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | JVM receiver baseline |
+| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | Native-image receiver baseline |
+| **go-receiver** | 8072 | Go + Gin | Go receiver baseline |
+| **rust-receiver** | 8073 | Rust + Actix | Rust receiver baseline |
+| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | Downstream sinker and persistence stage |
 
 **All services are built using multi-stage Dockerfiles** - no pre-build steps required!
 
@@ -295,39 +295,47 @@ For deploying to cloud Kubernetes (EKS, AKS, GKE):
    - AWS RDS (PostgreSQL) instead of in-cluster database
    - AWS Managed Prometheus & Grafana
 
-## **7\. Comprehensive Benchmark Comparison**
+## **7\. Benchmark Foundation**
 
-The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
+This repository is maintained as a living comparison harness. Historical winners in old benchmark runs should be treated as dated unless they are tied to a specific commit, hardware profile, and benchmark mode.
 
-Metric | Go (Gin) | Quarkus Native | Rust (Actix) | Spring Boot (JVM)* | Python (FastAPI)* |
-| :---- | :---- | :---- | :---- | :---- | :---- |
-| **Max Throughput** | **~31,000 RPS** | **~30,000 RPS** | **~31,000 RPS** | ~14,000 RPS | ~7,000 RPS |
-| **Avg. Latency** | **1.57ms** | **1.70ms** | **1.55ms** | ~8.5ms | ~25ms |
-| **Idle Memory** | **~15 MB** | **~35 MB** | **~12MB** | ~450 MB | ~120 MB |
-| **Startup Time** | **Instant** | **0.05s** | **Instant** | 10s+ | 1s |
-| **Bottleneck** | Network/Infra | Network/Infra | Network/Infra | CPU (JIT Warmup) | CPU (GIL) |
+The benchmark contract lives in [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). The default comparison mode is now:
 
+- `BENCHMARK_DELIVERY_MODE=confirm`
+- `BENCHMARK_KAFKA_ACKS=1`
 
-
-
-**Key Takeaways:**
-
-1. **Go & Quarkus Native** are in a league of their own. They are so fast they saturate the Docker network (\~30k RPS) before their own code becomes the bottleneck.
-2. **Spring Boot (Standard JVM)** is robust but heavy. It requires significantly more memory (\~10x) and takes seconds to start, making it less ideal for serverless or instant-scaling AdTech scenarios.
-3. **Python (FastAPI)** is excellent for development speed but struggles with raw throughput in high-concurrency scenarios due to the Global Interpreter Lock (GIL) and interpreter overhead. To match Go's 30k RPS, you would likely need 4-5x more hardware.
+That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation instead of mixing fire-and-forget and delivery-confirmed semantics.
 
 ## **8\. Load Testing**
 
-Run k6 load tests against any receiver:
+Run a single target manually:
 
 ```bash
-# Test Quarkus JVM receiver
-k6 run --vus 100 --duration 30s k6/load-test.js
-
-# Test different services by changing the BASE_URL
-BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go receiver
-BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust receiver
+BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
+BASE_URL=http://localhost:8072 RATE=5000 DURATION=30s PREALLOCATED_VUS=200 MAX_VUS=400 k6 run k6/load-test.js
 ```
+
+Run the full matrix with the reproducible wrapper:
+
+```bash
+scripts/run-benchmark-matrix.sh
+```
+
+Run fire-and-forget mode explicitly:
+
+```bash
+BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+```
+
+Override the default resource budget explicitly when needed:
+
+```bash
+BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m \
+BENCHMARK_KAFKA_CPUS=1.0 BENCHMARK_KAFKA_MEMORY=768m \
+scripts/run-benchmark-matrix.sh
+```
+
+Each matrix run now produces collated artifacts under `results/<timestamp>/`, including `runs.csv`, `summary.csv`, `summary.md`, and `summary.json`.
 
 ## **9\. Docker Image Optimization**
 
