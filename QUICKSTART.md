@@ -108,12 +108,17 @@ Once everything is running:
 ## Performance Testing
 
 ```bash
-# Load test with k6
-k6 run --vus 100 --duration 30s k6/load-test.js
+# Manual k6 run
+BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
 
-# Or test different receivers
-BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go
-BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust
+# Run the full receiver matrix with benchmark defaults
+scripts/run-benchmark-matrix.sh
+
+# Fire-and-forget mode must be explicit
+BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+
+# Tighten the local benchmark budget explicitly
+BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m scripts/run-benchmark-matrix.sh
 ```
 
 ## Troubleshooting
