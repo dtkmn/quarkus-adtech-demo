@@ -57,14 +57,17 @@ We will perform load testing using realistic, albeit simplified, OpenRTB JSON pa
 ```mermaid
 graph TB
     subgraph "Load Balancer / Ingress"
-        LB[Load Balancer<br/>Port 8070-8073]
+        LB[Load Balancer<br/>Port 8070-8077]
     end
     
     subgraph "Receiver Layer - High Throughput HTTP Services"
-        QR[Quarkus Receiver JVM<br/>:8070<br/>~16.7K RPS]
-        QRN[Quarkus Receiver Native<br/>:8071<br/>~16.8K RPS]
-        GR[Go Receiver<br/>:8072<br/>~17.6K RPS]
-        RR[Rust Receiver<br/>:8073<br/>~21.8K RPS]
+        QR[Quarkus Receiver JVM<br/>:8070]
+        QRN[Quarkus Receiver Native<br/>:8071]
+        GR[Go Receiver<br/>:8072]
+        RR[Rust Receiver<br/>:8073]
+        PR[Python Receiver<br/>:8075]
+        SR[Spring Receiver<br/>:8076]
+        NR[Node Receiver<br/>:8077]
     end
     
     subgraph "Message Queue"
@@ -93,11 +96,17 @@ graph TB
     LB --> QRN
     LB --> GR
     LB --> RR
+    LB --> PR
+    LB --> SR
+    LB --> NR
     
     QR -->|Reactive Messaging| K
     QRN -->|Reactive Messaging| K
     GR -->|Kafka Producer| K
     RR -->|Kafka Producer| K
+    PR -->|Kafka Producer| K
+    SR -->|Kafka Producer| K
+    NR -->|Kafka Producer| K
     
     K --> QS
     QS -->|Persist| PG
@@ -130,13 +139,16 @@ graph TB
 
 ### Service Comparison
 
-| Service | Port | Technology | Image Size | Use Case |
-|---------|------|------------|------------|----------|
-| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | 387MB | Production-ready JVM with fast startup |
-| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | 271MB | Instant startup, minimal memory |
-| **go-receiver** | 8072 | Go + Gin | 51.6MB | Minimal footprint, high throughput |
-| **rust-receiver** | 8073 | Rust + Actix | 132MB | Maximum performance, memory safety |
-| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | 582MB | Consumer that sinks to PostgreSQL |
+| Service | Port | Technology | Role |
+|---------|------|------------|------|
+| **quarkus-receiver** | 8070 | Quarkus JVM + Alpine JRE | JVM receiver baseline |
+| **quarkus-receiver-native** | 8071 | Quarkus Native (GraalVM) | Native-image receiver baseline |
+| **go-receiver** | 8072 | Go + Gin | Go receiver baseline |
+| **rust-receiver** | 8073 | Rust + Actix | Rust receiver baseline |
+| **python-receiver** | 8075 | Python + FastAPI | Python receiver baseline |
+| **spring-receiver** | 8076 | Spring Boot 4 + MVC | Mainstream Java receiver baseline |
+| **node-receiver** | 8077 | Node 24 + Fastify | JavaScript/TypeScript receiver baseline |
+| **quarkus-sinker** | 8074 | Quarkus JVM + Kafka Streams | Downstream sinker and persistence stage |
 
 **All services are built using multi-stage Dockerfiles** - no pre-build steps required!
 
@@ -295,39 +307,87 @@ For deploying to cloud Kubernetes (EKS, AKS, GKE):
    - AWS RDS (PostgreSQL) instead of in-cluster database
    - AWS Managed Prometheus & Grafana
 
-## **7\. Comprehensive Benchmark Comparison**
+## **7\. Benchmark Foundation**
 
-The following table compares our actual test results with performance for traditional stacks in a similar Docker Desktop environment (constrained to \~3-4 vCPUs).
+This repository is maintained as a living comparison harness. Historical winners in old benchmark runs should be treated as dated unless they are tied to a specific commit, hardware profile, and benchmark mode.
 
-Metric | Go (Gin) | Quarkus Native | Rust (Actix) | Spring Boot (JVM)* | Python (FastAPI)* |
-| :---- | :---- | :---- | :---- | :---- | :---- |
-| **Max Throughput** | **~31,000 RPS** | **~30,000 RPS** | **~31,000 RPS** | ~14,000 RPS | ~7,000 RPS |
-| **Avg. Latency** | **1.57ms** | **1.70ms** | **1.55ms** | ~8.5ms | ~25ms |
-| **Idle Memory** | **~15 MB** | **~35 MB** | **~12MB** | ~450 MB | ~120 MB |
-| **Startup Time** | **Instant** | **0.05s** | **Instant** | 10s+ | 1s |
-| **Bottleneck** | Network/Infra | Network/Infra | Network/Infra | CPU (JIT Warmup) | CPU (GIL) |
+The benchmark contract lives in [docs/BENCHMARK_CONTRACT.md](docs/BENCHMARK_CONTRACT.md). The default comparison mode is now:
 
+- `BENCHMARK_DELIVERY_MODE=confirm`
+- `BENCHMARK_KAFKA_ACKS=1`
 
+That makes the out-of-the-box run compare HTTP request handling plus Kafka delivery confirmation instead of mixing fire-and-forget and delivery-confirmed semantics.
 
-
-**Key Takeaways:**
-
-1. **Go & Quarkus Native** are in a league of their own. They are so fast they saturate the Docker network (\~30k RPS) before their own code becomes the bottleneck.
-2. **Spring Boot (Standard JVM)** is robust but heavy. It requires significantly more memory (\~10x) and takes seconds to start, making it less ideal for serverless or instant-scaling AdTech scenarios.
-3. **Python (FastAPI)** is excellent for development speed but struggles with raw throughput in high-concurrency scenarios due to the Global Interpreter Lock (GIL) and interpreter overhead. To match Go's 30k RPS, you would likely need 4-5x more hardware.
+For framework-only cost, run `BENCHMARK_DELIVERY_MODE=http-only`. That mode skips Kafka startup and measures HTTP parsing, validation, filtering, and response handling only.
 
 ## **8\. Load Testing**
 
-Run k6 load tests against any receiver:
+Run a single target manually:
 
 ```bash
-# Test Quarkus JVM receiver
-k6 run --vus 100 --duration 30s k6/load-test.js
-
-# Test different services by changing the BASE_URL
-BASE_URL=http://localhost:8072 k6 run k6/load-test.js  # Go receiver
-BASE_URL=http://localhost:8073 k6 run k6/load-test.js  # Rust receiver
+BASE_URL=http://localhost:8070 VUS=100 DURATION=30s k6 run k6/load-test.js
+BASE_URL=http://localhost:8072 RATE=5000 DURATION=30s PREALLOCATED_VUS=200 MAX_VUS=400 k6 run k6/load-test.js
 ```
+
+Run the full matrix with the reproducible wrapper:
+
+```bash
+scripts/run-benchmark-matrix.sh
+```
+
+Run fire-and-forget mode explicitly:
+
+```bash
+BENCHMARK_DELIVERY_MODE=enqueue BENCHMARK_KAFKA_ACKS=0 scripts/run-benchmark-matrix.sh
+```
+
+Run the pure receiver path without Kafka:
+
+```bash
+BENCHMARK_DELIVERY_MODE=http-only scripts/run-benchmark-matrix.sh
+```
+
+Override the default resource budget explicitly when needed:
+
+```bash
+BENCHMARK_RECEIVER_CPUS=1.5 BENCHMARK_RECEIVER_MEMORY=512m \
+BENCHMARK_KAFKA_CPUS=1.0 BENCHMARK_KAFKA_MEMORY=768m \
+scripts/run-benchmark-matrix.sh
+```
+
+Make concurrency explicit when you want to compare scheduler behavior instead of framework defaults:
+
+```bash
+HTTP_SERVER_WORKERS=2 \
+GOMAXPROCS=2 \
+QUARKUS_HTTP_IO_THREADS=2 \
+SPRING_TOMCAT_THREADS_MAX=200 \
+SPRING_TOMCAT_THREADS_MIN_SPARE=10 \
+scripts/run-benchmark-matrix.sh
+```
+
+`HTTP_SERVER_WORKERS` is not a literal CPU-thread knob across the whole matrix. In this repo it means worker processes for Python and Node, and worker threads for Rust. `BENCHMARK_RECEIVER_CPUS` is the actual container CPU budget.
+
+Keep Kafka producer tuning aligned too:
+
+```bash
+BENCHMARK_KAFKA_LINGER_MS=10 \
+BENCHMARK_KAFKA_BATCH_BYTES=131072 \
+BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=5000 \
+scripts/run-benchmark-matrix.sh
+```
+
+Not every client library exposes identical producer knobs. The Java, Go, Rust, Spring, and aiokafka lanes can be kept close on linger/batch/request-timeout behavior. KafkaJS can apply the shared request timeout, but its batching model is not a one-to-one match.
+
+Each matrix run now produces collated artifacts under `results/<timestamp>/`, including `runs.csv`, `summary.csv`, `summary.md`, `summary.json`, and `mode-comparison.csv` when a compatible opposite-mode run is available.
+
+`summary.md` now includes normalized efficiency views alongside raw throughput, plus a matched HTTP-vs-Kafka delta section when the collator can pair the run with a compatible `http-only` or Kafka-enabled counterpart:
+
+- `req/s / receiver CPU limit`
+- `req/s / receiver GiB limit`
+- `req/s / measured stack avg core`
+- `req/s / measured stack avg GiB`
+- estimated Kafka-added latency per service
 
 ## **9\. Docker Image Optimization**
 
@@ -366,10 +426,35 @@ cd services/rust-receiver
 cargo run
 ```
 
+For Python service:
+```bash
+cd services/python-receiver
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
+```
+
+For Spring Boot service:
+```bash
+cd services/spring-receiver
+mvn spring-boot:run
+```
+
+For Node service:
+```bash
+cd services/node-receiver
+npm install
+HTTP_SERVER_WORKERS=2 npm start
+```
+
 ### Rebuild Individual Services
 ```bash
 docker-compose build quarkus-receiver
 docker-compose build go-receiver
+docker-compose build python-receiver
+docker-compose build spring-receiver
+docker-compose build node-receiver
 ```
 
 ## **11\. CI/CD**
