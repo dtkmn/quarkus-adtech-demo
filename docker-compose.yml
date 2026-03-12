@@ -276,11 +276,36 @@ services:
       BENCHMARK_KAFKA_LINGER_MS: ${BENCHMARK_KAFKA_LINGER_MS:-10}
       BENCHMARK_KAFKA_BATCH_BYTES: ${BENCHMARK_KAFKA_BATCH_BYTES:-131072}
       BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS: ${BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS:-5000}
-      JAVA_TOOL_OPTIONS: -Xmx512m -Xms128m
-      SERVER_TOMCAT_THREADS_MAX: ${SPRING_TOMCAT_THREADS_MAX:-200}
-      SERVER_TOMCAT_THREADS_MIN_SPARE: ${SPRING_TOMCAT_THREADS_MIN_SPARE:-10}
+      HTTP_SERVER_WORKERS: ${HTTP_SERVER_WORKERS:-2}
+      JAVA_TOOL_OPTIONS: -Xmx512m -Xms128m -Dreactor.netty.ioWorkerCount=${HTTP_SERVER_WORKERS:-2}
     ports:
       - "8076:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  spring-virtual-receiver:
+    <<: *benchmark-receiver
+    image: spring-virtual-receiver
+    build:
+      context: ./services/spring-virtual-receiver
+      dockerfile: Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      BENCHMARK_DELIVERY_MODE: ${BENCHMARK_DELIVERY_MODE:-confirm}
+      BENCHMARK_KAFKA_ACKS: ${BENCHMARK_KAFKA_ACKS:-1}
+      BENCHMARK_KAFKA_LINGER_MS: ${BENCHMARK_KAFKA_LINGER_MS:-10}
+      BENCHMARK_KAFKA_BATCH_BYTES: ${BENCHMARK_KAFKA_BATCH_BYTES:-131072}
+      BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS: ${BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS:-5000}
+      JAVA_TOOL_OPTIONS: -Xmx512m -Xms128m
+    ports:
+      - "8078:8080"
     depends_on:
       kafka:
         condition: service_healthy
