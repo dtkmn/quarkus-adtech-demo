@@ -380,10 +380,27 @@ Keep Kafka producer tuning aligned too:
 BENCHMARK_KAFKA_LINGER_MS=10 \
 BENCHMARK_KAFKA_BATCH_BYTES=131072 \
 BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS=5000 \
+BENCHMARK_KAFKA_RETRY_BACKOFF_MS=100 \
 scripts/run-benchmark-matrix.sh
 ```
 
-Not every client library exposes identical producer knobs. The Java, Go, Rust, Spring, and aiokafka lanes can be kept close on linger/batch/request-timeout behavior. KafkaJS can apply the shared request timeout, but its batching model is not a one-to-one match.
+For clients that expose it, you can also make retry behavior explicit:
+
+```bash
+BENCHMARK_KAFKA_RETRIES=5 \
+BENCHMARK_KAFKA_RETRY_BACKOFF_MS=100 \
+scripts/run-benchmark-matrix.sh
+```
+
+Not every client library exposes identical producer knobs. The Java, Go, Rust, and Spring lanes support explicit retry count and retry backoff; `aiokafka` exposes retry backoff but not a fixed retry-count knob, so its retry budget is still bounded by `BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS`. KafkaJS can apply the shared request timeout and retry settings, but its batching model is not a one-to-one match.
+
+The local Kafka broker is now more explicit too:
+
+- topic auto-creation is disabled
+- topic partitions, retention, max message size, and min ISR are configurable
+- broker network and I/O thread counts are explicit
+
+This is still a single-broker local stack, so it is not true high availability. Real durability improvements require a multi-broker cluster with replication factor greater than `1`.
 
 Each matrix run now produces collated artifacts under `results/<timestamp>/`, including `runs.csv`, `summary.csv`, `summary.md`, `summary.json`, and `mode-comparison.csv` when a compatible opposite-mode run is available.
 
