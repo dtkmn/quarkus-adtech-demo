@@ -22,6 +22,8 @@ public class BenchmarkSettings {
     private final int kafkaLingerMs;
     private final int kafkaBatchBytes;
     private final int kafkaRequestTimeoutMs;
+    private final int kafkaRetries;
+    private final int kafkaRetryBackoffMs;
 
     @Autowired
     public BenchmarkSettings(Environment environment) {
@@ -32,7 +34,9 @@ public class BenchmarkSettings {
                 environment.getProperty("benchmark.kafka.acks"),
                 environment.getProperty("benchmark.kafka.linger.ms"),
                 environment.getProperty("benchmark.kafka.batch.bytes"),
-                environment.getProperty("benchmark.kafka.request.timeout.ms")
+                environment.getProperty("benchmark.kafka.request.timeout.ms"),
+                environment.getProperty("benchmark.kafka.retries"),
+                environment.getProperty("benchmark.kafka.retry.backoff.ms")
         );
     }
 
@@ -43,7 +47,9 @@ public class BenchmarkSettings {
             String kafkaAcks,
             String kafkaLingerMs,
             String kafkaBatchBytes,
-            String kafkaRequestTimeoutMs
+            String kafkaRequestTimeoutMs,
+            String kafkaRetries,
+            String kafkaRetryBackoffMs
     ) {
         this.deliveryMode = normalizeDeliveryMode(deliveryMode);
         this.kafkaBootstrapServers = normalizeKafkaBootstrapServers(kafkaBootstrapServers);
@@ -56,6 +62,12 @@ public class BenchmarkSettings {
                 5000,
                 "BENCHMARK_KAFKA_REQUEST_TIMEOUT_MS"
         );
+        this.kafkaRetries = normalizeNonNegativeInt(kafkaRetries, 5, "BENCHMARK_KAFKA_RETRIES");
+        this.kafkaRetryBackoffMs = normalizeNonNegativeInt(
+                kafkaRetryBackoffMs,
+                100,
+                "BENCHMARK_KAFKA_RETRY_BACKOFF_MS"
+        );
     }
 
     public static BenchmarkSettings forTests(
@@ -64,7 +76,7 @@ public class BenchmarkSettings {
             String kafkaTopic,
             String kafkaAcks
     ) {
-        return new BenchmarkSettings(deliveryMode, kafkaBootstrapServers, kafkaTopic, kafkaAcks, null, null, null);
+        return new BenchmarkSettings(deliveryMode, kafkaBootstrapServers, kafkaTopic, kafkaAcks, null, null, null, null, null);
     }
 
     public boolean isConfirmDeliveryMode() {
@@ -105,6 +117,14 @@ public class BenchmarkSettings {
 
     public int kafkaRequestTimeoutMs() {
         return kafkaRequestTimeoutMs;
+    }
+
+    public int kafkaRetries() {
+        return kafkaRetries;
+    }
+
+    public int kafkaRetryBackoffMs() {
+        return kafkaRetryBackoffMs;
     }
 
     private static String normalizeDeliveryMode(String raw) {
@@ -157,6 +177,24 @@ public class BenchmarkSettings {
         try {
             int parsed = Integer.parseInt(raw.trim());
             if (parsed > 0) {
+                return parsed;
+            }
+        } catch (NumberFormatException ignored) {
+            // fall through
+        }
+
+        LOG.warn("Ignoring invalid {}={}; defaulting to {}", envName, raw, fallback);
+        return fallback;
+    }
+
+    private static int normalizeNonNegativeInt(String raw, int fallback, String envName) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return fallback;
+        }
+
+        try {
+            int parsed = Integer.parseInt(raw.trim());
+            if (parsed >= 0) {
                 return parsed;
             }
         } catch (NumberFormatException ignored) {

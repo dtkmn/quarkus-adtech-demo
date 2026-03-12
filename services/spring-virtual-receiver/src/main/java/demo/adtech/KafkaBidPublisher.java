@@ -30,9 +30,12 @@ public class KafkaBidPublisher implements BidPublisher {
             LOG.info("HTTP-only benchmark mode enabled; skipping Kafka producer initialization");
         } else {
             LOG.info(
-                    "Initialized Spring virtual receiver publisher (delivery_mode={}, acks={})",
+                    "Initialized Spring virtual receiver publisher (delivery_mode={}, topic={}, acks={}, retries={}, retry_backoff_ms={})",
                     settings.deliveryMode(),
-                    settings.kafkaAcks()
+                    settings.kafkaTopic(),
+                    settings.kafkaAcks(),
+                    settings.kafkaRetries(),
+                    settings.kafkaRetryBackoffMs()
             );
         }
     }
@@ -94,10 +97,19 @@ public class KafkaBidPublisher implements BidPublisher {
         properties.put(ProducerConfig.LINGER_MS_CONFIG, Integer.toString(settings.kafkaLingerMs()));
         properties.put(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(settings.kafkaBatchBytes()));
         properties.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, Integer.toString(settings.kafkaRequestTimeoutMs()));
+        properties.put(ProducerConfig.RETRIES_CONFIG, Integer.toString(settings.kafkaRetries()));
+        properties.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, Integer.toString(settings.kafkaRetryBackoffMs()));
         properties.put(
                 ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
-                Integer.toString(settings.kafkaRequestTimeoutMs() + Math.max(1000, settings.kafkaLingerMs()))
+                Integer.toString(computeDeliveryTimeoutMs(settings))
         );
         return properties;
+    }
+
+    private static int computeDeliveryTimeoutMs(BenchmarkSettings settings) {
+        long timeout = (long) settings.kafkaRequestTimeoutMs() * (settings.kafkaRetries() + 1L)
+                + (long) settings.kafkaRetryBackoffMs() * settings.kafkaRetries()
+                + Math.max(settings.kafkaLingerMs(), 1000L);
+        return (int) Math.min(Integer.MAX_VALUE, timeout);
     }
 }
